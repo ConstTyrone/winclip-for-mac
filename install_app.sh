@@ -48,6 +48,7 @@ fi
 # 检查应用包是否生成成功
 if [ ! -d "ClipMaster.app" ]; then
     echo "❌ 应用程序包生成失败"
+    echo "💡 请确保 build_app.sh 脚本正常运行"
     exit 1
 fi
 
@@ -75,7 +76,7 @@ if [ $? -eq 0 ]; then
     echo "🚀 要立即启动应用，请运行："
     echo "   open /Applications/ClipMaster.app"
     echo ""
-    echo "💡 遇到问题？运行 ./check_permissions.sh 检查系统权限"
+    echo "💡 遇到问题？请检查系统偏好设置中的辅助功能权限"
 else
     echo "❌ 安装失败：无法复制到 Applications 文件夹"
     echo "💡 请检查是否有足够的权限，或尝试手动复制："
