@@ -1,6 +1,6 @@
 # WinClip for Mac 📋
 
-> 🎯 **一个简洁高效的 macOS 剪贴板管理器** - 按 `Option+V` 快速呼出，单击直接粘贴
+> 🎯 **一个简洁高效的 macOS 剪贴板管理器** - 按 `Option+V` （模仿win+v）快速呼出，单击直接粘贴
 
 <div align="center">
 
