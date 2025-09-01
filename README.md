@@ -36,62 +36,33 @@
 └─────────────────────────────────┘
 ```
 
-## 🚀 快速开始
+## 🚀 一键安装使用
 
-### 方法一：直接下载运行（推荐）
+真正的开箱即用，只需两条命令：
 
-1. **下载项目**
 ```bash
 git clone https://github.com/ConstTyrone/winclip-for-mac.git
-cd winclip-for-mac
+cd winclip-for-mac && ./run.sh
 ```
 
-2. **一键构建**
-```bash
-# 运行构建脚本
-./build_app.sh
+就这么简单！脚本会自动完成：
+- ✅ 检查系统环境
+- ✅ 编译应用程序  
+- ✅ 创建应用程序包
+- ✅ 安装到应用程序文件夹
+- ✅ 自动启动应用
 
-# 或者手动构建
-swift build -c release
-```
+### 🔧 开发者选项
 
-3. **安装应用**
-```bash
-# 复制到应用程序文件夹
-cp -r ClipMaster.app /Applications/
-
-# 或运行安装脚本
-./install_app.sh
-```
-
-4. **首次设置**
-   - 启动应用，它会出现在菜单栏
-   - 系统会提示授予"辅助功能"权限
-   - 前往 `系统偏好设置 → 安全性与隐私 → 隐私 → 辅助功能`
-   - 勾选 ClipMaster
-
-### 方法二：源码编译
+如果你是开发者，也可以：
 
 ```bash
-# 克隆项目
-git clone https://github.com/ConstTyrone/winclip-for-mac.git
-cd winclip-for-mac
-
-# 构建项目
-swift build -c release
-
-# 直接运行
+# 直接运行源码（无需安装）
 swift run ClipMaster
-```
 
-### 方法三：Xcode 开发
-
-```bash
-# 生成 Xcode 项目
+# 生成 Xcode 项目进行开发
 swift package generate-xcodeproj
 open ClipMaster.xcodeproj
-
-# 在 Xcode 中构建运行
 ```
 
 ## 🎮 使用指南
@@ -133,11 +104,9 @@ ClipMaster/
 
 ## 🔧 构建脚本
 
-项目提供了便利脚本：
+项目提供了一个极简脚本：
 
-- **`build_app.sh`** - 完整构建应用程序包
-- **`install_app.sh`** - 自动构建并安装到应用程序文件夹
-- **`quick_start.sh`** - 一键快速试用（无需安装）
+- **`run.sh`** - 一键构建、安装并启动应用
 
 ## 🐛 故障排除
 
