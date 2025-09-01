@@ -806,6 +806,11 @@ class HotkeyManager {
         print("✅ 手动权限检查完成")
     }
     
+    /// 公开的权限状态检查方法（供UI调用）
+    func getAccessibilityPermissionStatus() -> Bool {
+        return checkAccessibilityPermission()
+    }
+    
     // MARK: - 改进的权限检查方法
     
     /// 检查辅助功能权限的增强版本

@@ -388,6 +388,12 @@ struct ModernShortcutsSettings: View {
     @AppStorage("globalShortcutKey") private var shortcutKey = "v"
     @State private var isEditingShortcut = false
     
+    // 权限状态管理
+    @State private var accessibilityPermissionGranted: Bool = false
+    @State private var isCheckingPermission: Bool = false
+    @State private var showPermissionResult: Bool = false
+    @State private var permissionResultMessage: String = ""
+    
     init() {
         print("🏗️ ModernShortcutsSettings 视图初始化")
     }
@@ -456,19 +462,103 @@ struct ModernShortcutsSettings: View {
                         
                         Spacer()
                         
+                        // 权限状态指示器
+                        HStack(spacing: 8) {
+                            if isCheckingPermission {
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                                    .frame(width: 20, height: 20)
+                                Text("检查中...")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            } else {
+                                Image(systemName: accessibilityPermissionGranted ? "checkmark.circle.fill" : "xmark.circle.fill")
+                                    .font(.system(size: 16))
+                                    .foregroundColor(accessibilityPermissionGranted ? .green : .red)
+                                
+                                Text(accessibilityPermissionGranted ? "已授权" : "未授权")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(accessibilityPermissionGranted ? .green : .red)
+                            }
+                        }
+                        
                         Button("刷新权限") {
-                            // 立即检查权限状态
-                            HotkeyManager.shared.checkPermissionImmediately()
+                            refreshPermissionStatus()
                         }
                         .buttonStyle(.bordered)
+                        .disabled(isCheckingPermission)
                     }
                     
-                    HStack {
-                        Text("如果设置权限后快捷键仍不生效，请点击刷新权限")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("如果设置权限后快捷键仍不生效，请点击刷新权限")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            
+                            Spacer()
+                        }
                         
-                        Spacer()
+                        // 权限设置指导
+                        if !accessibilityPermissionGranted {
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack {
+                                    Image(systemName: "info.circle")
+                                        .font(.system(size: 12))
+                                        .foregroundColor(.orange)
+                                    
+                                    Text("权限设置指导：")
+                                        .font(.caption)
+                                        .fontWeight(.medium)
+                                        .foregroundColor(.orange)
+                                    
+                                    Spacer()
+                                }
+                                
+                                Text("1. 打开系统偏好设置 → 安全性与隐私 → 辅助功能")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                
+                                HStack {
+                                    Text("2. 点击")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                    
+                                    Image(systemName: "plus")
+                                        .font(.system(size: 10))
+                                        .foregroundColor(.blue)
+                                        .padding(.horizontal, 4)
+                                        .padding(.vertical, 2)
+                                        .background(Color.blue.opacity(0.1))
+                                        .cornerRadius(3)
+                                    
+                                    Text("号手动添加 ClipMaster（推荐方式）")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                                
+                                Text("3. 选中 ClipMaster 并确认授权")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding(.top, 4)
+                        }
+                    }
+                    
+                    // 权限检查结果提示
+                    if showPermissionResult {
+                        HStack {
+                            Image(systemName: "info.circle.fill")
+                                .font(.system(size: 12))
+                                .foregroundColor(.blue)
+                            
+                            Text(permissionResultMessage)
+                                .font(.caption)
+                                .foregroundColor(.primary)
+                            
+                            Spacer()
+                        }
+                        .padding(.top, 4)
+                        .transition(.opacity)
                     }
                 }
                 .padding(16)
@@ -506,6 +596,70 @@ struct ModernShortcutsSettings: View {
                 key: $shortcutKey,
                 isPresented: $isEditingShortcut
             )
+        }
+        .onAppear {
+            // 页面加载时立即检查权限状态
+            checkInitialPermissionStatus()
+        }
+    }
+    
+    // MARK: - 权限状态管理方法
+    
+    /// 页面加载时检查初始权限状态（无动画）
+    private func checkInitialPermissionStatus() {
+        accessibilityPermissionGranted = HotkeyManager.shared.getAccessibilityPermissionStatus()
+        print("🔍 初始权限状态检查: \(accessibilityPermissionGranted)")
+    }
+    
+    /// 刷新权限状态（带动画和反馈）
+    private func refreshPermissionStatus() {
+        // 开始检查动画
+        withAnimation(.easeInOut(duration: 0.3)) {
+            isCheckingPermission = true
+        }
+        
+        // 隐藏之前的结果
+        showPermissionResult = false
+        
+        // 延迟检查以显示加载效果
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            let wasGranted = accessibilityPermissionGranted
+            
+            // 执行权限检查
+            HotkeyManager.shared.checkPermissionImmediately()
+            let newStatus = HotkeyManager.shared.getAccessibilityPermissionStatus()
+            
+            withAnimation(.easeInOut(duration: 0.3)) {
+                isCheckingPermission = false
+                accessibilityPermissionGranted = newStatus
+            }
+            
+            // 显示检查结果
+            var resultMessage = ""
+            if newStatus {
+                if !wasGranted {
+                    resultMessage = "✅ 检测到权限已授予，快捷键将在2-3秒后生效"
+                } else {
+                    resultMessage = "✅ 权限状态正常，快捷键应该可以正常使用"
+                }
+            } else {
+                resultMessage = "❌ 未检测到辅助功能权限，请前往系统设置授权"
+            }
+            
+            // 显示结果提示
+            withAnimation(.easeInOut(duration: 0.3)) {
+                permissionResultMessage = resultMessage
+                showPermissionResult = true
+            }
+            
+            // 5秒后隐藏结果提示
+            DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    showPermissionResult = false
+                }
+            }
+            
+            print("🔄 权限刷新完成: \(wasGranted) → \(newStatus)")
         }
     }
     
