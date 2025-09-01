@@ -30,6 +30,11 @@ class HotkeyManager {
     private var permissionCheckTimer: Timer?
     private var wasAccessibilityGranted = false  // 跟踪上次权限状态
     
+    // 注册状态跟踪 - 防止重复注册
+    private var isRegistering = false
+    private var registrationAttempts = 0
+    private var maxRegistrationAttempts = 3
+    
     // 用户自定义快捷键设置 - 修复存储格式为数组
     private var currentModifiers: [String] {
         UserDefaults.standard.stringArray(forKey: "globalShortcutModifiers") ?? ["option"]
@@ -138,6 +143,11 @@ class HotkeyManager {
         currentBackend = .unavailable
         print("✅ 已重置后端状态")
         
+        // 重置注册状态
+        isRegistering = false
+        registrationAttempts = 0
+        print("✅ 已重置注册状态")
+        
         // 停止权限监控
         stopPermissionMonitoring()
     }
@@ -162,12 +172,47 @@ class HotkeyManager {
         
         print("🔐 辅助功能权限已授予，开始注册快捷键...")
         
+        // 防止重复注册
+        guard !isRegistering else {
+            print("⚠️ 快捷键注册正在进行中，跳过重复请求")
+            return
+        }
+        
+        isRegistering = true
+        registrationAttempts = 0
+        
         // 重置权限提示状态（权限已获得）
         hasShownPermissionAlert = false
         
-        // 延迟注册以确保权限生效
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            self.performHotkeyRegistration()
+        // 增加延迟以确保 macOS 权限完全生效
+        print("⏳ 等待 macOS 权限系统准备就绪...")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            self.performHotkeyRegistrationWithRetry()
+        }
+    }
+    
+    // 带重试机制的快捷键注册
+    private func performHotkeyRegistrationWithRetry() {
+        registrationAttempts += 1
+        
+        print("🔄 尝试第 \(registrationAttempts) 次快捷键注册...")
+        
+        // 确保当前仍有权限
+        guard checkAccessibilityPermission() else {
+            print("❌ 权限已失效，停止注册")
+            isRegistering = false
+            return
+        }
+        
+        // 先清理可能存在的旧注册
+        cleanupOldRegistration()
+        
+        // 执行注册
+        performHotkeyRegistration()
+        
+        // 验证注册是否成功
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            self.verifyRegistrationSuccess()
         }
     }
     
@@ -180,6 +225,56 @@ class HotkeyManager {
             registerWithNSEventAPI()
         case .unavailable:
             print("❌ 当前macOS版本不支持快捷键功能")
+        }
+    }
+    
+    // 清理旧的注册资源
+    private func cleanupOldRegistration() {
+        if let hotkeyRef = hotkeyRef {
+            UnregisterEventHotKey(hotkeyRef)
+            self.hotkeyRef = nil
+        }
+        
+        if let hotkeyShiftRef = hotkeyShiftRef {
+            UnregisterEventHotKey(hotkeyShiftRef)
+            self.hotkeyShiftRef = nil
+        }
+        
+        if let eventHandler = eventHandler {
+            RemoveEventHandler(eventHandler)
+            self.eventHandler = nil
+        }
+        
+        if let globalMonitor = globalMonitor {
+            if let monitors = globalMonitor as? [Any] {
+                for monitor in monitors {
+                    NSEvent.removeMonitor(monitor)
+                }
+            } else {
+                NSEvent.removeMonitor(globalMonitor)
+            }
+            self.globalMonitor = nil
+        }
+    }
+    
+    // 验证注册是否成功，失败时重试
+    private func verifyRegistrationSuccess() {
+        let isSuccessful = (currentBackend == .carbon && hotkeyRef != nil) || 
+                          (currentBackend == .nsEvent && globalMonitor != nil)
+        
+        if isSuccessful {
+            print("✅ 快捷键注册成功验证 (后端: \(currentBackend))")
+            isRegistering = false
+            registrationAttempts = 0
+        } else if registrationAttempts < maxRegistrationAttempts {
+            print("⚠️ 注册验证失败，准备重试...")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                self.performHotkeyRegistrationWithRetry()
+            }
+        } else {
+            print("❌ 快捷键注册失败，已达到最大重试次数")
+            isRegistering = false
+            registrationAttempts = 0
         }
     }
     
@@ -226,6 +321,7 @@ class HotkeyManager {
         
         if status2 == noErr {
             print("✅ Carbon API快捷键注册成功: \(getShortcutDisplayString())")
+            currentBackend = .carbon
         } else {
             print("❌ Carbon API快捷键注册失败: \(status2)")
             print("🔍 错误分析:")
@@ -237,6 +333,13 @@ class HotkeyManager {
             default:
                 print("   - 未知错误码: \(status2)")
             }
+            
+            // 清理失败的 Carbon 资源
+            if let eventHandler = eventHandler {
+                RemoveEventHandler(eventHandler)
+                self.eventHandler = nil
+            }
+            
             print("💡 降级使用NSEvent方案...")
             registerWithNSEventAPI()
         }
@@ -435,9 +538,10 @@ class HotkeyManager {
         1. 点击「打开系统设置」按钮
         2. 在「隐私与安全性」>「辅助功能」中找到 ClipMaster
         3. 勾选 ClipMaster 旁边的复选框
-        4. 关闭设置窗口，快捷键即可正常使用
+        4. 等待 2-3 秒让系统权限生效
+        5. 快捷键即可正常使用
         
-        注意：这是一次性设置，授权后无需重复操作。
+        注意：这是一次性设置，授权后权限需要几秒钟生效时间。
         """
         alert.alertStyle = .informational
         alert.addButton(withTitle: "打开系统设置")
@@ -659,10 +763,16 @@ class HotkeyManager {
             print("🚨 权限状态变化: \(wasAccessibilityGranted) → \(currentStatus)")
             
             if currentStatus {
-                // 权限被授予 - 立即注册快捷键，不延迟
-                print("✅ 权限已恢复，立即重新注册快捷键")
+                // 权限被授予 - 防止重复注册
+                print("✅ 权限已恢复，准备重新注册快捷键")
                 hasShownPermissionAlert = false
-                self.registerSystemHotkey()
+                
+                // 防止重复注册
+                if !isRegistering {
+                    self.registerSystemHotkey()
+                } else {
+                    print("⚠️ 快捷键注册正在进行中，跳过权限恢复触发")
+                }
             } else {
                 // 权限被撤销
                 print("❌ 权限被撤销，快捷键功能不可用")
