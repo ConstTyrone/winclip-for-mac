@@ -149,15 +149,30 @@ struct ClipboardItem: Identifiable, Codable, Equatable {
             )
         }
         
-        // 尝试获取图片内容
-        if let image = pasteboard.readObjects(forClasses: [NSImage.self], options: nil)?.first as? NSImage,
-           let tiffData = image.tiffRepresentation {
-            return ClipboardItem(
-                content: tiffData,
-                plainText: nil,
-                contentType: .image,
-                sourceApp: sourceApp
-            )
+        // 尝试获取图片内容（改进的图片数据处理）
+        if let image = pasteboard.readObjects(forClasses: [NSImage.self], options: nil)?.first as? NSImage {
+            // 尝试多种图片数据格式以确保兼容性
+            var imageData: Data?
+            
+            // 优先尝试PNG格式（适合Figma等设计工具）
+            if let pngData = image.pngData {
+                imageData = pngData
+                print("📷 获取到PNG格式图片: \(pngData.count) bytes")
+            } 
+            // 备选TIFF格式
+            else if let tiffData = image.tiffRepresentation {
+                imageData = tiffData
+                print("📷 获取到TIFF格式图片: \(tiffData.count) bytes")
+            }
+            
+            if let data = imageData {
+                return ClipboardItem(
+                    content: data,
+                    plainText: nil,
+                    contentType: .image,
+                    sourceApp: sourceApp
+                )
+            }
         }
         
         // 尝试获取文件URL

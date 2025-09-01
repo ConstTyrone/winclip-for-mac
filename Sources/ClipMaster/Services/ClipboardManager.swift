@@ -88,8 +88,8 @@ class ClipboardManager: ObservableObject {
     
     // 添加新项目
     func addItem(_ item: ClipboardItem) {
-        // 检查是否已存在相同内容
-        if let existingIndex = items.firstIndex(where: { $0.plainText == item.plainText && $0.contentType == item.contentType }) {
+        // 检查是否已存在相同内容（改进的去重逻辑）
+        if let existingIndex = items.firstIndex(where: { isDuplicateItem($0, item) }) {
             // 更新使用次数和时间戳
             var updatedItem = items[existingIndex]
             updatedItem.useCount += 1
@@ -111,11 +111,27 @@ class ClipboardManager: ObservableObject {
         } else {
             // 添加新项目
             items.insert(item, at: 0)
+            print("📋 添加新剪贴板项目: \(item.contentType.rawValue) - \(item.displayText.prefix(50))")
         }
         
         // 添加项目后执行清理
         cleanupExpiredItems()
         enforceItemLimit()
+    }
+    
+    // 改进的重复检测逻辑
+    private func isDuplicateItem(_ existing: ClipboardItem, _ new: ClipboardItem) -> Bool {
+        // 内容类型必须相同
+        guard existing.contentType == new.contentType else { return false }
+        
+        switch new.contentType {
+        case .image:
+            // 对于图片，比较实际数据内容
+            return existing.content == new.content
+        default:
+            // 对于文本类型，比较plainText
+            return existing.plainText == new.plainText && existing.plainText != nil
+        }
     }
     
     // 删除项目
