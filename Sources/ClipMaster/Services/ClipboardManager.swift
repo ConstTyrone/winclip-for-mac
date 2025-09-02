@@ -17,6 +17,10 @@ class ClipboardManager: ObservableObject {
     private let storageKey = "ClipboardHistory"
     private var cancellables = Set<AnyCancellable>()
     
+    // 性能优化：权限状态缓存
+    private var accessibilityPermissionCached: Bool?
+    private var lastPermissionCheck: Date = Date.distantPast
+    
     // 从用户设置读取的计算属性
     private var maxItems: Int {
         let value = UserDefaults.standard.double(forKey: "maxHistoryItems")
@@ -151,7 +155,7 @@ class ClipboardManager: ObservableObject {
         items = items.filter { $0.isPinned }
     }
     
-    // 粘贴项目到用户目标应用
+    // 粘贴项目到用户目标应用（性能优化版本）
     func pasteItem(_ item: ClipboardItem) {
         // 更新使用次数
         if let index = items.firstIndex(where: { $0.id == item.id }) {
@@ -163,25 +167,39 @@ class ClipboardManager: ObservableObject {
         
         // 获取用户的真实目标应用
         let targetApp = HotkeyManager.shared.getTargetApplication()
+        let currentFrontmostApp = NSWorkspace.shared.frontmostApplication
         
         if let app = targetApp {
-            // 强制激活用户期望的应用
-            app.activate(options: .activateIgnoringOtherApps)
-            print("✅ 激活用户目标应用: \(app.localizedName ?? "Unknown")")
+            // 检查目标应用是否已经是前台应用
+            let isAlreadyFrontmost = app.bundleIdentifier == currentFrontmostApp?.bundleIdentifier
             
-            // 等待应用激活后再粘贴
-            let delay = item.contentType == .image ? 0.4 : 0.25
+            if !isAlreadyFrontmost {
+                // 需要激活应用
+                app.activate(options: .activateIgnoringOtherApps)
+                print("✅ 激活用户目标应用: \(app.localizedName ?? "Unknown")")
+            }
+            
+            // 智能延迟：已激活的应用几乎无延迟，新激活的应用适度延迟
+            let delay: TimeInterval
+            if isAlreadyFrontmost {
+                // 应用已激活，最小延迟
+                delay = item.contentType == .image ? 0.05 : 0.02
+            } else {
+                // 需要激活应用，减少但保留必要延迟
+                delay = item.contentType == .image ? 0.15 : 0.1
+            }
+            
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-                self.simulatePaste(for: item.contentType)
+                self.simulatePasteOptimized(for: item.contentType)
                 if item.contentType == .image {
                     self.showPasteNotification(for: item)
                 }
             }
         } else {
             print("⚠️ 没有记录目标应用，使用前台应用")
-            // 降级方案：使用当前前台应用
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                self.simulatePaste(for: item.contentType)
+            // 降级方案：使用当前前台应用，减少延迟
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                self.simulatePasteOptimized(for: item.contentType)
             }
         }
     }
@@ -213,6 +231,49 @@ class ClipboardManager: ObservableObject {
         keyUp?.post(tap: .cghidEventTap)
         
         print("✅ 已模拟粘贴操作 (\(contentType.rawValue))")
+    }
+    
+    // 优化后的粘贴模拟 - 使用权限缓存
+    private func simulatePasteOptimized(for contentType: ContentType) {
+        // 使用缓存的权限检查结果
+        guard checkAccessibilityPermissionCached() else {
+            print("❌ 缺少辅助功能权限，无法模拟粘贴操作")
+            return
+        }
+        
+        let source = CGEventSource(stateID: .hidSystemState)
+        
+        // 创建Cmd+V事件
+        let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: true) // V key
+        keyDown?.flags = .maskCommand
+        let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: false)
+        keyUp?.flags = .maskCommand
+        
+        // 发送事件
+        keyDown?.post(tap: .cghidEventTap)
+        
+        // 对于图片，添加一个小延迟确保事件处理完成（减少到5ms）
+        if contentType == .image {
+            usleep(5000) // 5ms instead of 10ms
+        }
+        
+        keyUp?.post(tap: .cghidEventTap)
+        
+        print("⚡ 已快速模拟粘贴操作 (\(contentType.rawValue))")
+    }
+    
+    // 缓存的权限检查 - 避免重复系统调用
+    private func checkAccessibilityPermissionCached() -> Bool {
+        let now = Date()
+        
+        // 如果距离上次检查超过10秒或者没有缓存，重新检查
+        if accessibilityPermissionCached == nil || now.timeIntervalSince(lastPermissionCheck) > 10 {
+            accessibilityPermissionCached = checkAccessibilityPermission()
+            lastPermissionCheck = now
+            print("🔄 刷新权限缓存: \(accessibilityPermissionCached! ? "已授权" : "未授权")")
+        }
+        
+        return accessibilityPermissionCached ?? false
     }
     
     // 显示粘贴通知
