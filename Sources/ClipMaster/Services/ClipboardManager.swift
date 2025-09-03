@@ -94,7 +94,7 @@ class ClipboardManager: ObservableObject {
     func addItem(_ item: ClipboardItem) {
         // 检查是否已存在相同内容（改进的去重逻辑）
         if let existingIndex = items.firstIndex(where: { isDuplicateItem($0, item) }) {
-            // 更新使用次数和时间戳
+            // 只更新时间戳和来源，不增加使用次数（使用次数只在粘贴时增加）
             let updatedItem = items[existingIndex]
             items[existingIndex] = ClipboardItem(
                 content: updatedItem.content,
@@ -105,7 +105,7 @@ class ClipboardManager: ObservableObject {
                 timestamp: Date(),
                 isPinned: updatedItem.isPinned,
                 tags: updatedItem.tags,
-                useCount: updatedItem.useCount + 1
+                useCount: updatedItem.useCount  // 保持原有使用次数
             )
             
             // 移到最前面
