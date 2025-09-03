@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# WinClip for Mac - 一键运行脚本
+# ClipMaster - 一键运行脚本
 # 自动检查环境、构建、安装并启动应用
 
 set -e
 
-echo "🎯 WinClip for Mac - 一键安装运行"
+echo "🎯 ClipMaster - 一键安装运行"
 echo "================================="
 echo ""
 
@@ -64,7 +64,7 @@ cat > "$CONTENTS_DIR/Info.plist" << EOF
     <key>CFBundleName</key>
     <string>ClipMaster</string>
     <key>CFBundleDisplayName</key>
-    <string>WinClip for Mac</string>
+    <string>ClipMaster</string>
     <key>CFBundleVersion</key>
     <string>1.0.0</string>
     <key>CFBundleShortVersionString</key>
@@ -78,7 +78,7 @@ cat > "$CONTENTS_DIR/Info.plist" << EOF
     <key>LSUIElement</key>
     <true/>
     <key>NSAccessibilityUsageDescription</key>
-    <string>WinClip需要辅助功能权限来响应全局快捷键Option+V并模拟粘贴操作</string>
+    <string>ClipMaster需要辅助功能权限来响应全局快捷键Option+V并模拟粘贴操作</string>
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
 </dict>
@@ -109,11 +109,11 @@ if [ $? -eq 0 ]; then
     echo ""
     
     # 启动应用
-    echo "🚀 启动 WinClip for Mac..."
+    echo "🚀 启动 ClipMaster..."
     open "/Applications/$APP_DIR"
     
     echo ""
-    echo "🎉 WinClip for Mac 已安装并启动！"
+    echo "🎉 ClipMaster 已安装并启动！"
     echo ""
     echo "📝 下一步："
     echo "1. 应用已在菜单栏显示"
