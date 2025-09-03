@@ -95,8 +95,7 @@ class ClipboardManager: ObservableObject {
         // 检查是否已存在相同内容（改进的去重逻辑）
         if let existingIndex = items.firstIndex(where: { isDuplicateItem($0, item) }) {
             // 更新使用次数和时间戳
-            var updatedItem = items[existingIndex]
-            updatedItem.useCount += 1
+            let updatedItem = items[existingIndex]
             items[existingIndex] = ClipboardItem(
                 content: updatedItem.content,
                 plainText: updatedItem.plainText,
