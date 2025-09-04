@@ -115,13 +115,17 @@ ClipMaster/
 **Q: Option+V 无响应？**
 ```
 A: 请确保已授予辅助功能权限：
+   方法一（推荐先试）：
    1. 系统偏好设置 → 安全性与隐私 → 辅助功能
    2. 点击左下角🔒解锁，输入密码
-   3. 如果ClipMaster已在列表中，先点击➖移除
-   4. 点击➕号手动添加 /Applications/ClipMaster.app
-   5. 确保ClipMaster已勾选启用
+   3. 找到ClipMaster并勾选启用
    
-   注意：由于是自签名应用，建议手动添加而非使用开关
+   方法二（如果方法一无效）：
+   1. 如果ClipMaster已在列表中，先点击➖移除
+   2. 点击➕号手动添加 /Applications/ClipMaster.app
+   3. 确保ClipMaster已勾选启用
+   
+   注意：自签名应用有时需要手动添加才能正常工作
 ```
 
 **Q: 无法粘贴到某些应用？**
