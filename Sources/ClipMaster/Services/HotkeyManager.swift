@@ -515,11 +515,9 @@ class HotkeyManager {
     func showClipboardWindow() {
         if clipboardWindow == nil {
             clipboardWindow = ClipboardWindow()
-            print("✅ 创建新的剪贴板窗口实例")
         }
         
         clipboardWindow?.showWindow()
-        print("✅ 显示剪贴板窗口")
     }
     
     // 获取用户目标应用

@@ -68,22 +68,34 @@ class ClipboardWindow: NSObject, NSWindowDelegate {
         
         // 计算窗口位置（鼠标位置附近或屏幕中央）
         let mouseLocation = NSEvent.mouseLocation
-        let screenFrame = NSScreen.main?.frame ?? NSRect.zero
         
+        // 查找鼠标所在的屏幕，支持多显示器配置
+        let currentScreen = NSScreen.screens.first { screen in
+            screen.frame.contains(mouseLocation)
+        } ?? NSScreen.main ?? NSScreen.screens.first!
+        
+        let screenFrame = currentScreen.frame
+        
+        // 使用相对于选中屏幕的坐标计算窗口位置
         var windowOrigin = NSPoint(
             x: mouseLocation.x - 300,  // 窗口宽度的一半
             y: mouseLocation.y - 100   // 向上偏移
         )
         
-        // 确保窗口在屏幕内
+        // 确保窗口在选中屏幕内（使用屏幕的绝对坐标）
         let windowSize = window.frame.size
-        if windowOrigin.x < 0 { windowOrigin.x = 20 }
-        if windowOrigin.x + windowSize.width > screenFrame.width {
-            windowOrigin.x = screenFrame.width - windowSize.width - 20
+        let screenMinX = screenFrame.minX
+        let screenMaxX = screenFrame.maxX
+        let screenMinY = screenFrame.minY
+        let screenMaxY = screenFrame.maxY
+        
+        if windowOrigin.x < screenMinX + 20 { windowOrigin.x = screenMinX + 20 }
+        if windowOrigin.x + windowSize.width > screenMaxX - 20 {
+            windowOrigin.x = screenMaxX - windowSize.width - 20
         }
-        if windowOrigin.y < 0 { windowOrigin.y = 20 }
-        if windowOrigin.y + windowSize.height > screenFrame.height {
-            windowOrigin.y = screenFrame.height - windowSize.height - 20
+        if windowOrigin.y < screenMinY + 20 { windowOrigin.y = screenMinY + 20 }
+        if windowOrigin.y + windowSize.height > screenMaxY - 20 {
+            windowOrigin.y = screenMaxY - windowSize.height - 20
         }
         
         window.setFrameOrigin(windowOrigin)
